@@ -9,6 +9,7 @@ pinned: false
 tags:
   - openenv
 ---
+
 ![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-blueviolet)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
@@ -41,8 +42,8 @@ This environment surfaces common failure modes:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    OpenEnv Interface                         │
-│  reset() → Observation  │  step(Action) → (Obs, Reward...) │
-│  state() → Episode State                                    │
+│  reset() → Observation  │  step(Action) → (Obs, Reward...)   │
+│  state() → Episode State │  health() → {"status": "ok"}     │
 └──────────────────────────────────────────────────────────────┘
          ↓
 ┌──────────────────────────────────────────────────────────────┐
@@ -55,9 +56,11 @@ This environment surfaces common failure modes:
 ┌──────────────────────────────────────────────────────────────┐
 │            FastAPI Server (Port 7860)                        │
 │  POST /reset    → Initialize episode, return observation     │
-│  POST /step     → Execute action, return (reward, done...) │
-│  GET  /state    → Retrieve current episode state             │
-│  GET  /  (/)    → Health check                              │
+│  GET  /reset     → Reset via query params, return observation│
+│  POST /step      → Execute action, return (reward, done...)  │
+│  GET  /state     → Retrieve current episode state            │
+│  GET  /health    → Liveness check                            │
+│  GET  /          → Root status check                         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,6 +71,7 @@ This environment surfaces common failure modes:
 - Episode metadata (ID, task type, difficulty, step count)
 - Ticket details (title, customer message, metadata)
 - Action schema & allowed fields
+- Component scores for the current step
 - Current progress & last feedback
 
 **Action** (agent must decide):
@@ -87,7 +91,7 @@ This environment surfaces common failure modes:
 **Reward Breakdown**:
 
 - ✅ Component scores (per grading rubric)
-- ✅ Total incremental reward (delta)
+- ✅ Total incremental reward delta
 - ✅ Policy penalty (if violated)
 - ✅ Episode score (cumulative)
 
@@ -125,7 +129,7 @@ This environment surfaces common failure modes:
 | **Response**       | Policy-safe language: verify identity, reset MFA, investigate (no password/guarantee promises) |
 | **Escalation**     | Should escalate: `true`                                                                        |
 
-**Baseline score**: 0.89
+**Baseline score**: 0.887
 
 ---
 
@@ -142,7 +146,15 @@ This environment surfaces common failure modes:
 | **Response**       | Careful language: apologize, investigating status, next update (no "root cause", "fixed in 1h") |
 | **Escalation**     | Should escalate: `true`                                                                         |
 
-**Baseline score**: 0.89
+**Baseline score**: 0.872
+
+### Step Budget
+
+- Easy task: 5 steps max
+- Medium task: 5 steps max
+- Hard task: 8 steps max
+
+Episodes also end early if the cumulative score reaches 0.95 or higher.
 
 ---
 
@@ -295,7 +307,7 @@ hackathon/
 
 ### `POST /reset`
 
-Initialize environment and return first observation.
+Initialize environment and return the first observation directly.
 
 **Request**:
 
@@ -309,10 +321,7 @@ Initialize environment and return first observation.
 **Response**:
 
 ```json
-{
-  "observation": { ... },
-  "state": { ... }
-}
+{ ...observation fields... }
 ```
 
 ---
@@ -367,15 +376,25 @@ Retrieve current episode state.
 }
 ```
 
+### `GET /health`
+
+Liveness check used by Docker and the Hugging Face runtime.
+
+**Response**:
+
+```json
+{ "status": "ok" }
+```
+
 ---
 
 ## 🚀 Baseline Performance
 
 | Task                       | Difficulty | Fallback Score | Notes                           |
 | -------------------------- | ---------- | -------------- | ------------------------------- |
-| billing_double_charge      | 🟢 Easy    | **0.95**       | Clear routing, good response    |
-| security_lockout_triage    | 🟡 Medium  | **0.89**       | Handles policy constraints well |
-| enterprise_api_degradation | 🔴 Hard    | **0.89**       | Complex wording requirements    |
+| billing_double_charge      | 🟢 Easy    | **0.953**      | Clear routing, good response    |
+| security_lockout_triage    | 🟡 Medium  | **0.887**      | Handles policy constraints well |
+| enterprise_api_degradation | 🔴 Hard    | **0.872**      | Harder keyword + policy target   |
 
 **Fallback policy** (runs without API key):
 

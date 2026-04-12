@@ -106,7 +106,7 @@ Agent                           Environment
   │                               ├─ Sample task (or use task_id)
   │                               ├─ Initialize EpisodeState
   │<────────────────── Observation │
-  │   (ticket, task_id, allowed_actions, ...)
+  │   (ticket, task_id, allowed_actions, component_scores, ...)
   │
   ├── POST /step ───────────────>│
   │   { action: {...} }           │
@@ -114,12 +114,12 @@ Agent                           Environment
   │                               ├─ Score each component
   │                               ├─ Apply policy penalties
   │                               ├─ Calculate reward (Δ score)
-  │                               ├─ Check done (score >= 0.999 or step >= 3)
+  │                               ├─ Check done (score >= 0.95 or step >= max_steps)
   │<────────────────── (Obs, Reward, done, info)
   │
   ├── [If not done, repeat STEP]
   │
-  └── GET /state
+  └── GET /state / GET /health
       (retrieve full history)
 ```
 
@@ -131,7 +131,7 @@ Agent                           Environment
 RewardBreakdown {
     "total": 0.35,              # Incremental reward (Δ score from this step)
     "progress_delta": 0.35,     # Same as total
-    "bonus": 0.35,              # Max(Δ, 0) - reward for moving forward
+  "bonus": 0.35,              # Same as delta, clamped to [0, 1]
     "penalty": -0.02,           # Negative for policy violations
     "component_scores": {       # Breakdown of all component scores
         "classification": 1.0,
@@ -156,7 +156,7 @@ RewardBreakdown {
 - Clear, objective decisions (classification, priority, routing)
 - Straightforward domain knowledge (payments team)
 - Minimal policy constraints
-- Baseline score: 0.95
+- Baseline score: 0.953
 
 **Challenge:**
 
@@ -172,7 +172,7 @@ RewardBreakdown {
 - Introduces urgency escalation (P0 instead of P1)
 - Adds policy constraints (careful security language)
 - Requires domain understanding (MFA, verification)
-- Baseline score: 0.89
+- Baseline score: 0.887
 
 **Challenge:**
 
@@ -188,15 +188,15 @@ RewardBreakdown {
 
 - Enterprise customer = high stakes
 - Production workflow disruption = urgency
-- Highly constrained language (RCA, fix time promises forbidden)
-- Baseline score: 0.89
+- Highly constrained language (root-cause / fix-time promises forbidden)
+- Baseline score: 0.872
 
 **Challenge:**
 
 - Must _not_ claim to know root cause
 - Must _not_ promise a fix timeline
 - Must appear professional and transparent
-- Forbidden words: ["root cause", "fix in 1 hour", "RCA complete"]
+- Forbidden words: ["root cause identified", "will be fixed in", "definitely", "guaranteed", "within the hour", "immediately resolved"]
 
 ---
 

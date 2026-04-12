@@ -1,3 +1,9 @@
+"""Pydantic data models for support ticket triage environment.
+
+Defines type-safe schemas for observations, actions, rewards, and state tracking.
+All models use ConfigDict(extra="forbid") to catch unexpected fields during validation.
+"""
+
 from __future__ import annotations
 
 from typing import Dict, Literal, Optional

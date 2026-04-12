@@ -1,3 +1,22 @@
+"""Support Ticket Triage Environment.
+
+Core environment logic for the OpenEnv support ticket triage benchmark.
+Implements the standard OpenEnv interface (reset, step, state) with deterministic
+grading, shaped rewards, and policy-based penalties.
+
+Key features:
+  - Deterministic component-based scoring
+  - Incremental rewards for partial progress
+  - Policy violation penalties
+  - Type-safe Pydantic models
+
+Example:
+    >>> env = SupportTicketEnv()
+    >>> obs = env.reset(task_id="billing_double_charge")
+    >>> action = SupportTicketAction(classification="billing", priority="p1", ...)
+    >>> obs, reward, done, info = env.step(action)
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +29,18 @@ from .scenarios import ComponentSpec, TASKS, TASK_BY_ID, TaskScenario
 
 @dataclass
 class EpisodeState:
+    """Mutable episode state tracking.
+    
+    Attributes:
+        task: The active TaskScenario for this episode.
+        episode_id: Unique episode identifier (hex UUID).
+        step_count: Number of steps taken so far.
+        score: Cumulative episode score [0.0, 1.0].
+        done: Whether episode is complete.
+        progress: Per-component scores (ComponentSpec.name → [0.0, 1.0]).
+        history: List of (step, action, feedback) tuples.
+        last_feedback: Human-readable feedback from last step.
+    """
     task: TaskScenario
     episode_id: str = field(default_factory=lambda: uuid4().hex)
     step_count: int = 0
@@ -21,7 +52,27 @@ class EpisodeState:
 
 
 class SupportTicketEnv:
-    """A compact OpenEnv-style environment for support-ticket triage."""
+    """A compact OpenEnv-style environment for support-ticket triage.
+    
+    Implements the standard OpenEnv interface:
+      - reset(task_id, seed) → Observation
+      - step(action) → (Observation, RewardBreakdown, done: bool, info: dict)
+      - state() → SupportTicketState
+      - close() → None
+    
+    Features:
+      - 3 tasks: easy (billing), medium (security), hard (enterprise)
+      - Deterministic component grading (exact, keywords, policy, boolean)
+      - Shaped rewards: incremental credit for partial progress
+      - Policy penalties: forbidden words reduce reward
+      - Max 3 steps per episode
+    
+    Args:
+        tasks: Optional list of TaskScenarios. Defaults to all 3 tasks.
+    
+    Raises:
+        ValueError: If no tasks are provided.
+    """
 
     def __init__(self, tasks: Iterable[TaskScenario] | None = None) -> None:
         self._tasks = tuple(tasks or TASKS)
@@ -30,6 +81,18 @@ class SupportTicketEnv:
         self._state: EpisodeState | None = None
 
     def reset(self, task_id: str | None = None, seed: int | None = None) -> SupportTicketObservation:
+        """Reset the environment and start a new episode.
+        
+        Args:
+            task_id: Specific task to run, or None to sample based on seed.
+            seed: Random seed for task selection (ignored if task_id specified).
+        
+        Returns:
+            Initial SupportTicketObservation for the episode.
+        
+        Raises:
+            KeyError: If task_id is not found.
+        """
         if task_id is not None:
             task = TASK_BY_ID.get(task_id)
             if task is None:
@@ -62,6 +125,22 @@ class SupportTicketEnv:
         self._state = None
 
     def step(self, action: SupportTicketAction | dict[str, Any]) -> tuple[SupportTicketObservation, RewardBreakdown, bool, dict[str, Any]]:
+        """Execute an action in the environment.
+        
+        Args:
+            action: SupportTicketAction or dict with keys from action_schema.
+        
+        Returns:
+            Tuple of (observation, reward, done, info)
+            - observation: Updated SupportTicketObservation
+            - reward: RewardBreakdown with component scores and penalties
+            - done: Whether episode is complete (score >= 0.999 or max_steps reached)
+            - info: Dict with task_id, score, done, step_count, progress, history
+        
+        Raises:
+            RuntimeError: If called before reset() or after done.
+            ValueError: If action is invalid (see SupportTicketAction schema).
+        """
         state = self._require_state()
         if state.done:
             raise RuntimeError("Episode already finished; call reset() before stepping again.")

@@ -10,7 +10,18 @@ ComponentKind = Literal["exact", "keywords", "boolean", "policy"]
 
 @dataclass(frozen=True)
 class ComponentSpec:
-    name: str
+    """Grading specification for a single action component.
+    
+    Attributes:
+        name: Identifier (e.g., \"classification\", \"routing\")
+        field: Action field to grade (e.g., \"classification\")
+        kind: Grading method (exact|keywords|boolean|policy)
+        weight: Contribution to total score [0.0, 1.0]
+        expected: Expected value (for exact/boolean)
+        keywords: Required/bonus keywords (for keywords/policy)
+        forbidden_keywords: Words that incur penalty (for policy)
+        unlock_step: First step this component is scored (default: 1)
+    \"\"\"\n    name: str
     field: str
     kind: ComponentKind
     weight: float

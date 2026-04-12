@@ -1,3 +1,27 @@
+"""Baseline agent for the support ticket triage OpenEnv.
+
+Demonstrates how to interact with the environment and integrate with LLMs.
+
+Features:
+  - Uses OpenAI-compatible API (Hugging Face, OpenRouter, etc.)
+  - Falls back to deterministic heuristic policy if no API key
+  - Emits [START], [STEP], [END] log markers for grading
+  - Supports single-task evaluation via TASK_ID env var
+  - Type-safe action extraction with JSON parsing
+
+Environment variables:
+  API_BASE_URL: OpenAI-compatible API endpoint (default: Hugging Face)
+  MODEL_NAME: Model identifier (default: Qwen/Qwen2.5-72B-Instruct)
+  HF_TOKEN or API_KEY: Authentication token
+  TASK_ID: Run specific task only (optional)
+  BENCHMARK_NAME: Logging identifier (default: support-ticket-triage)
+
+Usage:
+    python inference.py                                    # Run all 3 tasks
+    TASK_ID=billing_double_charge python inference.py     # Run one task
+    API_BASE_URL=... MODEL_NAME=... HF_TOKEN=... python inference.py  # Custom API
+"""
+
 from __future__ import annotations
 
 import json
